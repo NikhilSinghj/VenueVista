@@ -1,0 +1,6 @@
+# Ignore all files in VenueVista/booking/migrations folder
+booking/migrations/*
+booking/__pycache__/*
+
+# But include VenueVista/booking/migrations/__init__.py
+!booking/migrations/__init__.py
