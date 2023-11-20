@@ -4,11 +4,14 @@ from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
 )
-from booking.views import Registration
+from booking.views import RegistrationVS,ConferenceHallVS,HallBookingVS,current_user,login
 
 urlpatterns = [
-    path('register/',Registration.as_view(),name='register'), 
-    # path('login/',obtain_auth_token,name='login'),  
+    path('register/',RegistrationVS.as_view(),name='register'), 
+    path('currentuser/',current_user,name='currentuser'),  
+    path('login/',login,name='login'), 
     path('login/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('login/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'), 
+    path('conferencehall/',ConferenceHallVS.as_view(),name='conferencehall'),
+    path('hallbooking/',HallBookingVS.as_view(),name='hallbooking'),
 ]
