@@ -1,6 +1,6 @@
 from django.shortcuts import render
 import json
-from booking.serializers import RegistrationSerializer,ConferenceHallSerializers,HallBookingSerializers
+from booking.serializers import RegistrationSerializer,UserProfileSerializers,ConferenceHallSerializers,HallBookingSerializers,HallApprovalHOD
 from rest_framework import generics,status
 from rest_framework.response import Response
 from booking.models import ConferenceHall,HallBooking
@@ -8,12 +8,38 @@ from rest_framework.validators import ValidationError
 from rest_framework.decorators import api_view
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
+from rest_framework.permissions import IsAuthenticated
+from rest_framework_simplejwt.tokens import RefreshToken
+from booking.permissions import HodRolePermission
+from datetime import datetime
+
 
 class RegistrationVS(generics.CreateAPIView):
     serializer_class=RegistrationSerializer
 
     def perform_create(self, serializer):
         serializer.save()
+
+class UserProfileVS(generics.ListAPIView):
+    serializer_class=UserProfileSerializers
+    permission_classes=[IsAuthenticated]
+    def get_queryset(self):
+        return User.objects.filter(pk=self.request.user.id).values('username','email')
+    
+class LogoutVS(generics.CreateAPIView):
+    permission_classes=[IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        refresh_token=self.request.data.get('refresh')
+        if refresh_token:
+            token = RefreshToken(token=refresh_token)
+            check=token.blacklist()
+            # if not check:
+            #     return Response({"message": "Already logged out"},status=status.HTTP_200_OK)
+            return Response({"message": "Logged out successfully"},status=status.HTTP_200_OK)
+        else:
+            return Response({"message": "Provide refresh token"},status=status.HTTP_401_UNAUTHORIZED)
+
 
 
 class ConferenceHallVS(generics.ListCreateAPIView):
@@ -32,21 +58,44 @@ class ConferenceHallVS(generics.ListCreateAPIView):
 
 class HallBookingVS(generics.ListCreateAPIView):
     serializer_class=HallBookingSerializers
-    def get_queryset(self):
-        return HallBooking.objects.all()
+    permission_classes=[IsAuthenticated]
+    # def get_queryset(self):
+    #     return HallBooking.objects.all()
     
     def perform_create(self, serializer):
-        pk=self.kwargs.get('pk')
-        print(pk)
-        conf_hall=ConferenceHall.objects.get(pk=pk)
+        hall=self.request.data['hall']
+        conf_hall=ConferenceHall.objects.get(pk=hall)
 
         user=self.request.user
-        booking=HallBooking.objects.filter(booked_by=user,hall=conf_hall)
+        booking=HallBooking.objects.filter(booked_by=user,hall=conf_hall.pk)
         if booking.exists():
-            raise ValidationError("You have already reviewed this movie")
+            raise ValidationError("You already booked this hall")
         else:
             serializer.save(booked_by=user,hall=conf_hall)
             # return Response()
+
+class HodApprovalVS(generics.RetrieveUpdateAPIView):
+    serializer_class=HallApprovalHOD    
+    permission_classes=[IsAuthenticated]
+    permission_classes=[HodRolePermission]
+    def get_queryset(self):
+        return HallBooking.objects.all()
+    print(HallBooking.objects.all())
+
+    def perform_update(self, serializer):
+        pk=self.kwargs.get('pk')
+        try:
+            hall=HallBooking.objects.get(deleted_status=False,pk=pk)
+        except:
+            return Response({'error':'No hall found'},status=status.HTTP_204_NO_CONTENT)
+        serializer.save(appr_by_hod=True,appr_timestp_hod=datetime.now())
+        return Response({'message':'Hall approved'},status=status.HTTP_200_OK)
+        
+        
+
+
+
+        
 
 
 
@@ -81,4 +130,4 @@ def login(request):
         data = get_tokens_for_user(user_id)
         return Response(data, status=status.HTTP_200_OK)
     else:
-        return Response(data, status=status.HTTP_200_OK)
+        return Response({'message':'jdcn'}, status=status.HTTP_200_OK)

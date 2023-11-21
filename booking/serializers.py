@@ -21,6 +21,12 @@ class RegistrationSerializer(serializers.ModelSerializer):
         account.set_password(password)
         account.save()
 
+class UserProfileSerializers(serializers.ModelSerializer):
+    class Meta:
+        model=User
+        fields=['username','email']
+
+
 
 class ConferenceHallSerializers(serializers.ModelSerializer):
     class Meta:
@@ -37,4 +43,9 @@ class HallBookingSerializers(serializers.ModelSerializer):
         # fields=['id','hall','']
         # fields="__all__"
 
-    
+class HallApprovalHOD(serializers.ModelSerializer):
+
+    class Meta:
+        model=HallBooking
+        fields=['hod_remark']
+        # exclude=('appr_by_hod','hod_remark','appr_timestp_hod','appr_by_ao','ao_remark','appr_timestp_ao','deleted_status','deleted_time')   
