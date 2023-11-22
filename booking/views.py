@@ -1,17 +1,17 @@
 from django.shortcuts import render
-import json
-from booking.serializers import RegistrationSerializer,UserProfileSerializers,ConferenceHallSerializers,HallBookingSerializers,HallApprovalHOD
 from rest_framework import generics,status
+from rest_framework.views import APIView
 from rest_framework.response import Response
 from booking.models import ConferenceHall,HallBooking
 from rest_framework.validators import ValidationError
-from rest_framework.decorators import api_view
-from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-from booking.permissions import HodRolePermission
+from booking.permissions import HodRolePermission,AoRolePermission
 from datetime import datetime
+from booking.serializers import (RegistrationSerializer,UserProfileSerializers,
+                                 ConferenceHallSerializers,HallBookingSerializers,
+                                 HallApprovalHOD,HallApprovalAO)
 
 
 class RegistrationVS(generics.CreateAPIView):
@@ -45,20 +45,37 @@ class LogoutVS(generics.CreateAPIView):
 class ConferenceHallVS(generics.ListCreateAPIView):
     serializer_class=ConferenceHallSerializers
 
+    def get(self,request,*args, **kwargs):
+        return self.list(request,*args,**kwargs)
+
     def get_queryset(self):
         return ConferenceHall.objects.filter(deleted_status=False)
 
     def perform_create(self, serializer):
         name=self.request.data['name']
         print(name)
+        # print(serializer)
         get_name=ConferenceHall.objects.filter(name=name,deleted_status=False)
         if get_name.exists():
             raise ValidationError("Conference hall for this name already exist")
         serializer.save()
 
+# from rest_framework.parsers import MultiPartParser,FormParser
+# class ConferenceHallVS(APIView):
+#     parser_classes = (MultiPartParser, FormParser)
+
+#     def post(self, request, *args, **kwargs):
+#         blog_serializer = ConferenceHallSerializers(data = request.data)
+#         if blog_serializer.is_valid():
+#             blog_serializer.save()
+#             return Response(blog_serializer.data)
+#         else:
+#             return Response(blog_serializer.errors)
+
+
 class HallBookingVS(generics.ListCreateAPIView):
     serializer_class=HallBookingSerializers
-    permission_classes=[IsAuthenticated]
+    # permission_classes=[IsAuthenticated]
     # def get_queryset(self):
     #     return HallBooking.objects.all()
     
@@ -76,58 +93,48 @@ class HallBookingVS(generics.ListCreateAPIView):
 
 class HodApprovalVS(generics.RetrieveUpdateAPIView):
     serializer_class=HallApprovalHOD    
-    permission_classes=[IsAuthenticated]
-    permission_classes=[HodRolePermission]
+    permission_classes=[IsAuthenticated,HodRolePermission]
+
+    # def get()
+
     def get_queryset(self):
         return HallBooking.objects.all()
-    print(HallBooking.objects.all())
+    # print(HallBooking.objects.all())
 
     def perform_update(self, serializer):
-        pk=self.kwargs.get('pk')
-        try:
-            hall=HallBooking.objects.get(deleted_status=False,pk=pk)
-        except:
-            return Response({'error':'No hall found'},status=status.HTTP_204_NO_CONTENT)
-        serializer.save(appr_by_hod=True,appr_timestp_hod=datetime.now())
-        return Response({'message':'Hall approved'},status=status.HTTP_200_OK)
+        serializer.save(appr_by_hod=True,appr_timestp_hod=datetime.now(),hod=self.request.user)
+
+class HodRejectionVS(generics.RetrieveUpdateAPIView):
+    serializer_class=HallApprovalHOD    
+    permission_classes=[IsAuthenticated,HodRolePermission]
+
+    def get_queryset(self):
+        return HallBooking.objects.all()
+
+    def perform_update(self, serializer):
+        serializer.save(deleted_status=True,deleted_time=datetime.now(),hod=self.request.user)
+
+class AOApprovalVS(generics.RetrieveUpdateAPIView):
+    serializer_class=HallApprovalAO    
+    permission_classes=[IsAuthenticated,AoRolePermission]
+
+    # def get()
+
+    def get_queryset(self):
+        return HallBooking.objects.all()
+
+    def perform_update(self, serializer):
+        serializer.save(appr_by_ao=True,appr_timestp_ao=datetime.now(),ao=self.request.user)
+
+class AORejectionVS(generics.RetrieveUpdateAPIView):
+    serializer_class=HallApprovalAO    
+    permission_classes=[IsAuthenticated,AoRolePermission]
+
+    def get_queryset(self):
+        return HallBooking.objects.all()
+
+    def perform_update(self, serializer):
+        serializer.save(deleted_status=True,deleted_time=datetime.now(),ao=self.request.user)
+    
         
-        
-
-
-
-        
-
-
-
-
-@api_view(['GET'])
-def current_user(request):
-    user = request.user
-    return Response({
-        'username': user.username,
-        'email': user.email,
-    })
-
-from rest_framework_simplejwt.tokens import RefreshToken
-
-
-def get_tokens_for_user(user):
-    refresh = RefreshToken.for_user(user)
-
-    return {
-        'refresh': str(refresh),
-        'access': str(refresh.access_token),
-        'user': user
-    }
-
-def login(request):
-    load=json.loads(request.body)
-    email=load.get('email')
-    password=load.get('password')
-    user = authenticate(email=email, password=password)
-    if user is not None:
-        user_id = User.objects.get(email=email)
-        data = get_tokens_for_user(user_id)
-        return Response(data, status=status.HTTP_200_OK)
-    else:
-        return Response({'message':'jdcn'}, status=status.HTTP_200_OK)
+class
