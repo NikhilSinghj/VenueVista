@@ -35,10 +35,10 @@ class ConferenceHall(BaseModel):
     description=models.TextField(max_length=200)
     occupancy=models.PositiveIntegerField()
     booking_days=models.PositiveIntegerField()
-    image=models.ImageField(upload_to='')
+    # image=models.ImageField(upload_to='',null=True)
 
 class ConfHallImages(BaseModel):
-    conf_hall=models.ForeignKey(ConferenceHall,on_delete=models.SET_NULL,null=True)
+    conf_hall=models.ForeignKey(ConferenceHall,on_delete=models.SET_NULL,null=True,related_name='confhall')
     image=models.ImageField(upload_to='')
 
 class HallBooking(BaseModel):
@@ -59,6 +59,7 @@ class HallBooking(BaseModel):
     appr_by_ao=models.BooleanField(default=False)
     ao_remark=models.TextField(max_length=200)
     appr_timestp_ao=models.DateTimeField(null=True)
+    avl_hall=models.ForeignKey(ConferenceHall,null=True,on_delete=models.SET_NULL,related_name='avl_hall')
 
 
 
