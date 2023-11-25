@@ -44,8 +44,10 @@ class AoRolePermission(permissions.BasePermission):
 #         if user is None:
 #             return False
 #         # role=Roles.objects.get(deleted_status=False,role_name='AO')
-#         dept=UserDepartment.objects.filter(deleted_status=False,user=user)
-#         if dept:
-#             return True
-#         else:
-#             return False
+#         depaprtment=list(UserDepartment.objects.filter(deleted_status=False,user=user).values_list('id',flat=True))
+#         for dept in depaprtment:
+#             user_dept=UserDepartment.objects.filter(deleted_status=False,user=user,dept=dept)
+#             if user_dept:
+#                 return True
+#             else:
+#                 return False

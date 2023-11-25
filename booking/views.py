@@ -2,7 +2,7 @@ from django.shortcuts import render
 from rest_framework import generics,status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from booking.models import ConferenceHall,HallBooking,LeftPannel,Roles,UserRole,ConfHallImages
+from booking.models import ConferenceHall,HallBooking,LeftPannel,Roles,UserRole,ConfHallImages,UserDepartment
 from rest_framework.validators import ValidationError
 from django.contrib.auth.models import User
 from rest_framework.permissions import IsAuthenticated
@@ -11,7 +11,8 @@ from booking.permissions import HodRolePermission,AoRolePermission,UserRolePermi
 from datetime import datetime
 from booking.serializers import (RegistrationSerializer,UserProfileSerializer,
                                  ConferenceHallSerializer,HallBookingSerializer,
-                                 HallApprovalHODSerializer,HallApprovalAOSerializer)
+                                 HallApprovalHODSerializer,HallApprovalAOSerializer,
+                                 ConferenceHallSerializer2,ReportSerializer)
 
 
 class RegistrationVS(generics.CreateAPIView):
@@ -42,41 +43,6 @@ class UserProfileVS(generics.ListAPIView):
 #             return Response({"message": "Provide refresh token"},status=status.HTTP_401_UNAUTHORIZED)
 
 
-
-# class ConferenceHallVS(generics.ListCreateAPIView):
-#     serializer_class=ConferenceHallSerializer
-#     # permission_classes=[IsAuthenticated,AoRolePermission]
-
-#     def get_queryset(self):
-#         return ConferenceHall.objects.filter(deleted_status=False)
-
-#     def perform_create(self, serializer):
-#         name=self.request.data['name']
-#         print(name)
-#         print(serializer)
-#         get_name=ConferenceHall.objects.filter(name=name,deleted_status=False)
-#         if get_name.exists():
-#             raise ValidationError("Conference hall for this name already exist")
-#         serializer.save()
-
-# class ConferenceHallVS(generics.ListCreateAPIView):
-#     serializer_class=ConferenceHallSerializer
-#     # permission_classes=[IsAuthenticated,AoRolePermission]
-
-#     def get_queryset(self):
-#         return ConferenceHall.objects.filter(deleted_status=False)
-
-#     def post(self, request, *args, **kwargs):
-#         data=request.data
-#         pop=request.data.pop('image')
-#         images=request.FILES.getlist('image')
-
-#         print(images)
-#         print(data)
-#         print(pop)
-#         return Response({'dbnss'})
-
-
 class ConferenceHallVS(generics.ListCreateAPIView):
     # permission_classes=[IsAuthenticated,AoRolePermission]
     serializer_class=ConferenceHallSerializer
@@ -87,6 +53,9 @@ class ConferenceHallVS(generics.ListCreateAPIView):
     def post(self, request, *args, **kwargs):
         hall_serializer = ConferenceHallSerializer(data = request.data)
         if hall_serializer.is_valid():
+            name=request.data.get('name')
+            if ConferenceHall.objects.filter(name=name,deleted_status=False).exists():
+                raise ValidationError("Conference hall for this name already exist")
             images=request.data.pop('image')
             conf_hall=hall_serializer.save()
             for image in images:
@@ -112,32 +81,47 @@ class UpdateConferenceHallVS(generics.RetrieveUpdateAPIView):
 class HallBookingVS(generics.ListCreateAPIView):
     serializer_class=HallBookingSerializer
     permission_classes=[IsAuthenticated]
-    # def get_queryset(self):
-    #     return HallBooking.objects.all()
+    queryset=HallBooking.objects.filter()
+    def get(self,request,*args, **kwargs):
+        queryset=HallBooking.objects.filter(deleted_status=False)
+        return Response(ReportSerializer(queryset,many=True).data)
     
     def perform_create(self, serializer):
         hall=self.request.data['hall']
         conf_hall=ConferenceHall.objects.get(pk=hall)
-
         user=self.request.user
         booking=HallBooking.objects.filter(booked_by=user,hall=conf_hall.pk)
         if booking.exists():
             raise ValidationError("You already booked this hall")
         else:
             serializer.save(booked_by=user,hall=conf_hall)
-            # return Response()
+
+    def perform_update(self,serializer):
+        serializer.save(deleted_status=True,deleted_time=datetime.now())
+
 
 class HodApprovalVS(generics.RetrieveUpdateAPIView):
     serializer_class=HallApprovalHODSerializer  
     permission_classes=[IsAuthenticated,HodRolePermission]
-
-    # def get()
+    # def get(self,request,*args, **kwargs):
+    #     queryset=HallBooking.objects.filter(deleted_status=False)
+    #     return Response(ReportSerializer(queryset,many=True).data)
 
     def get_queryset(self):
-        return HallBooking.objects.all()
+        return HallBooking.objects.filter(pk=self.kwargs.get('pk'))
     # print(HallBooking.objects.all())
+    
 
     def perform_update(self, serializer):
+        # avl_hall=self.request.
+        # conf_hall=ConferenceHall.objects.get(pk=)
+        # hall=HallBooking.objects.get(deleted_status=False,pk=self.kwargs.get('pk'))
+        # empl_dept=UserDepartment.objects.filter(dept=hall.emp_dept.id,user=self.request.user.pk)
+        # print(hall)
+        # print(empl_dept)
+        # print(self.request.user.pk)
+        # if empl_dept.exists():
+        #     return Response({'message':'You are from another department'},status=status.HTTP_403_FORBIDDEN)
         serializer.save(appr_by_hod=True,appr_timestp_hod=datetime.now(),hod=self.request.user)
 
 class HodRejectionVS(generics.RetrieveUpdateAPIView):
@@ -200,15 +184,25 @@ class ReportAV(APIView):
         data=list(ConferenceHall.objects.filter(deleted_status=False).values('name','route'))
         return Response(data)
 
-class AvlConfHallAV(APIView):
-    permission_classes=[IsAuthenticated,AoRolePermission]
+class AvlConfHallAV(generics.ListAPIView):
+    # permission_classes=[IsAuthenticated,AoRolePermission]
+    serializer_class=ConferenceHallSerializer
     def get(self,request,*args, **kwargs):
-        # avl_hall=
-        data=list(ConferenceHall.objects.filter(deleted_status=False).values('name','route'))
-        return Response(data)
+        to_date=self.request.query_params['to_date']
+        from_date=self.request.query_params['from_date']
+
+        booked=list(HallBooking.objects.filter(deleted_status=False,from_date=from_date,to_date=to_date).values_list('avl_hall',flat=True))
+        avl=list(ConferenceHall.objects.filter(deleted_status=False).values_list('id',flat=True))
+        queryset=[]
+        for a_id in avl:
+            if a_id not in booked:
+                obj=ConferenceHall.objects.filter(pk=a_id)
+                queryset.extend(obj)
+        return Response(ConferenceHallSerializer2(queryset,many=True).data)
     
 class GetConfHallAV(APIView):
     permission_classes=[IsAuthenticated,UserRolePermission]
+
     def get(self,request,*args, **kwargs):
         data=list(ConferenceHall.objects.filter(deleted_status=False).values('id','name'))
         return Response(data)

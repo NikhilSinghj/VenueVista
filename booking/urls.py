@@ -7,7 +7,9 @@ from rest_framework_simplejwt.views import (
 from booking.views import (RegistrationVS,ConferenceHallVS,
                            HallBookingVS,UserProfileVS,
                            HodApprovalVS,HodRejectionVS,
-                           AOApprovalVS,AORejectionVS,LeftPannelAV,GetConfHallAV,UpdateConferenceHallVS)
+                           AOApprovalVS,AORejectionVS,LeftPannelAV,
+                           GetConfHallAV,UpdateConferenceHallVS,
+                           AvlConfHallAV)
 
 urlpatterns = [
     path('register/',RegistrationVS.as_view(),name='register'), 
@@ -16,7 +18,7 @@ urlpatterns = [
     path('refresh/', TokenRefreshView.as_view(), name='token_refresh'), 
     path('logout/', TokenBlacklistView.as_view(), name='token_blacklist'),
     path('conference_hall/',ConferenceHallVS.as_view(),name='conference_hall'),
-    path('update_conf_hall/<int:pk>',UpdateConferenceHallVS.as_view(),name='update_conference_hall'),
+    path('conference_hall/<int:pk>',UpdateConferenceHallVS.as_view(),name='update_conference_hall'),
     path('hallbooking/',HallBookingVS.as_view(),name='hallbooking'),
     path('hod_approval/<int:pk>',HodApprovalVS.as_view(),name='hod_approval'),
     path('hod_rejection/<int:pk>',HodRejectionVS.as_view(),name='hod_rejection'),
@@ -24,4 +26,5 @@ urlpatterns = [
     path('ao_rejection/<int:pk>',AORejectionVS.as_view(),name='ao_rejection'),
     path('left_panel/',LeftPannelAV.as_view(),name='left_panel'),
     path('drop_conf_hall/',GetConfHallAV.as_view(),name='conference_hall_dropdown'),
+    path('avl_conf_hall/',AvlConfHallAV.as_view(),name='avialable_conference_hall'),
 ]
